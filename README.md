@@ -1,29 +1,48 @@
-# mcp-keyguard 🔐
+# 🔐 mcp-keyguard
 
-MCP server that protects your API keys from LLMs. Instead of exposing your real keys
-to Claude, Cursor or any AI agent, KeyGuard stores them encrypted locally and injects
-them transparently into HTTP requests.
+**Your AI agent should never see your API keys. Now it won't.**
 
-**Your keys never leave your machine.**
+mcp-keyguard is a local MCP server that acts as a secure proxy between 
+your AI agent (Claude, Cursor, Windsurf...) and any external API.
 
-## Why
+Instead of pasting your OpenAI, Stripe or GitHub keys into the chat context,
+you store them encrypted on your machine. The agent calls mcp-keyguard,
+which injects the real key server-side and returns the result.
 
-Every time you use a third-party MCP server, you're trusting that code with your API
-keys. KeyGuard eliminates that risk by acting as a local secure proxy.
+**The key never leaves your machine. The agent never sees it.**
 
-## Tools
+---
 
-- `add_key` — Store an API key encrypted in the local vault
-- `list_keys` — List stored aliases (values are never shown)
-- `make_request` — Make authenticated HTTP requests (key injected server-side)
-- `delete_key` — Remove a key from the vault
+## Why this matters
 
-## Installation
-```bash
-pip install mcp httpx cryptography
+In 2025, a vulnerability in a popular MCP hosting platform exposed thousands
+of API keys from over 3,000 servers. The root cause? Keys passed through
+infrastructure the user didn't control.
+
+mcp-keyguard is the opposite: fully local, zero external dependencies,
+your keys encrypted at rest with AES-128.
+
+---
+
+## How it works
+```
+Your prompt → Claude → mcp-keyguard → [injects real key] → External API
+                           ↑
+                    Key never leaves here
 ```
 
-Clone this repo and add to your `claude_desktop_config.json`:
+---
+
+## Installation
+
+**Requirements:** Python 3.10+
+```bash
+pip install mcp httpx cryptography
+git clone https://github.com/ggc180820/mcp-keyguard.git
+cd mcp-keyguard
+```
+
+Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
@@ -35,20 +54,65 @@ Clone this repo and add to your `claude_desktop_config.json`:
 }
 ```
 
-## Usage example
+Restart Claude Desktop. Done.
 
-Ask Claude:
-> "Use add_key to store my OpenAI key with alias 'openai',
->  header_name 'Authorization', header_prefix 'Bearer '"
+---
 
-Then:
-> "Use make_request with alias 'openai' to call
->  https://api.openai.com/v1/models"
+## Usage
 
-Claude never sees your real key.
+**1. Store a key (you do this once per key)**
 
-## Security
+> "Use add_key to store my OpenAI key with alias 'openai',  
+> header_name 'Authorization', header_prefix 'Bearer '"
 
-- Keys are encrypted with Fernet (AES-128-CBC) and stored locally
-- The encryption key lives in `vault.key` — never commit it to git
-- All HTTP requests are made server-side with a 30s timeout
+**2. Make authenticated requests (Claude does this automatically)**
+
+> "Use make_request with alias 'openai' to call  
+> https://api.openai.com/v1/models"
+
+**3. Check what's stored**
+
+> "Use list_keys"  
+> → Shows aliases and headers. Never the real values.
+
+---
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| `add_key` | Store an API key encrypted in the vault |
+| `list_keys` | List stored aliases — values are never shown |
+| `make_request` | Make an authenticated HTTP request, key injected server-side |
+| `delete_key` | Remove a key from the vault |
+
+---
+
+## Security model
+
+- Keys are encrypted with **Fernet (AES-128-CBC + HMAC-SHA256)**
+- The encryption key lives in `vault.key` on your machine only
+- All HTTP requests are made locally with a 30s timeout
+- **Never commit `vault.key` or `vault.json` to git** (already in `.gitignore`)
+
+---
+
+## mcp-keyguard Pro
+
+Need more control? Pro adds:
+
+| Feature | Free | Pro |
+|---|---|---|
+| Encrypted local vault | ✅ | ✅ |
+| Unlimited keys | ✅ | ✅ |
+| Multiple vaults (per project/client) | ❌ | ✅ |
+| Audit log (who used which key, when, where) | ❌ | ✅ |
+| Key rotation alerts | ❌ | ✅ |
+
+👉 **[Get Pro — 5€/month](https://buy.polar.sh/polar_cl_rOKtbDDGXIuZfyBFRXtcZh93UAUmblEoWY38L0d2WYr)** 
+
+---
+
+## License
+
+MIT — free forever for personal use.
